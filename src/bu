@@ -1,0 +1,133 @@
+use rumqttc::{MqttOptions, Client, QoS};
+use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::fs::File;
+use std::io::Read;
+use std::rc::Rc;
+use std::time::Duration;
+use gtk::{TextBufferExt, TextView, TextViewExt};
+use serde_json;
+use crate::state::AppState;
+
+
+pub fn execute_simulation(app_state: &Rc<RefCell<AppState>>, text_view: &TextView) {
+    let app_state_borrow = app_state.borrow();
+    println!("AppState: {:?}", *app_state_borrow);
+    println!("ddeath_file_path: {:?}", app_state_borrow.ddeath_file_path());
+    let dbirth_file_path = app_state_borrow.dbirth_file_path();
+    let ddata_file_path = app_state_borrow.dbirth_file_path();
+    let ddeath_file_path = app_state_borrow.ddeath_file_path();
+    let num_devices_to_simulate = app_state_borrow.number_devices_to_simulate();
+    let hostname = app_state_borrow.mqtt_broker_hostname();
+
+    // MQTT broker connection parameters
+    let mqtt_broker_hostname = "mqtt://localhost:1883"; // Replace with your MQTT broker hostname
+    let mqtt_topic_name = "test/topic"; // Replace with your MQTT topic name
+
+    // Create an MQTT client
+    let mut mqttoptions = MqttOptions::new("simulate", mqtt_broker_hostname, 1883);
+    mqttoptions.set_keep_alive(Duration::from_secs(30));
+    let (mut client, mut eventloop) = Client::new(mqttoptions, 10);
+
+
+
+    println!("Connected to MQTT broker successfully");
+    update_text_view(text_view, "Connected to MQTT broker successfully"); // Display connection success in TextView
+
+    match generate_birth_metrics(&dbirth_file_path) {
+        Ok(birth_metrics) => {
+            for metric in birth_metrics {
+                let metric_json = serde_json::to_string_pretty(&metric).expect("Failed to pretty-print JSON");
+
+                // Publish the birth metric to the MQTT broker
+                if let Err(client_error) = send_to_mqtt_broker(&mut client, mqtt_topic_name, &metric_json) {
+                    eprintln!("Failed to publish message: {}", client_error);
+                    update_text_view(text_view, &format!("Failed to publish message: {}", client_error)); // Display publish error in TextView
+                } else {
+                    // Add the formatted JSON to the TextView buffer
+                    update_text_view(text_view, &metric_json);
+
+                    // No need to wait for acknowledgment with QoS 1
+                    println!("Message published successfully with QoS 1");
+                    update_text_view(text_view, "Message published successfully with QoS 1");
+                }
+
+            }
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            update_text_view(text_view, &format!("Error: {}", err)); // Display error in TextView
+        }
+    }
+}
+// Define a struct to represent the metrics in the JSON file
+#[derive(Debug, Deserialize, Serialize)]
+struct Metric {
+    name: String,
+    alias: u32,
+    timestamp: u64,
+    datatype: u32,
+    value: String,
+    // Add other fields as needed
+}
+// Define a struct to represent the JSON data
+#[derive(Debug, Deserialize, Serialize)]
+struct JsonData {
+    timestamp: u64,
+    metrics: Vec<Metric>,
+    seq: u32,
+}
+
+fn generate_birth_metrics(dbirth_file_path: &str) -> Result<Vec<Metric>, Box<dyn std::error::Error>> {
+    // Read the JSON file
+    let mut file = File::open(dbirth_file_path)?;
+    let mut json_str = String::new();
+    file.read_to_string(&mut json_str)?;
+
+    // Parse the JSON data into a Vec<Metric>
+    let json_data: JsonData = serde_json::from_str(&json_str)?;
+
+    // Extract the metrics from the JSON data
+    let metrics = json_data.metrics;
+
+    Ok(metrics)
+}
+
+
+
+
+// Define a function to send an item to the MQTT broker
+
+
+// Define a function to send an item to the MQTT broker
+
+
+fn send_to_mqtt_broker(client: &mut Client, topic: &str, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Change QoS level to AtLeastOnce for delivery confirmation
+    let qos = QoS::AtLeastOnce;
+
+    // Publish the message and wait for ack
+    match client.publish(topic, qos, false, payload) {
+        Ok(_) => {
+            println!("Message published successfully to topic '{}'", topic);
+            Ok(())
+        },
+        Err(client_error) => {
+            eprintln!("Failed to publish message: {}", client_error);
+            Err(Box::new(client_error))
+        }
+    }
+}
+
+
+// Define a function to update the text_view with a new message
+fn update_text_view(text_view: &TextView, message: &str) {
+    let buffer = text_view.get_buffer().expect("Failed to get text buffer");
+    let mut end_iter = buffer.get_end_iter();
+
+    // Append the message to the text_view
+    buffer.insert(&mut end_iter, message);
+
+    // Add a newline after the message for separation
+    buffer.insert(&mut end_iter, "\n");
+}
