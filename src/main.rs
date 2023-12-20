@@ -1,7 +1,7 @@
-mod execute_simulation;
 mod state;
-
+mod simulation;
 use crate::state::AppState;
+use crate::simulation::mqtt_handler::execute_simulation;
 use std::cell::RefCell;
 use std::rc::Rc;
 extern crate gtk;
@@ -93,8 +93,8 @@ fn main() {
         .get_object("text_view")
         .expect("Couldn't get text_view");
     simulate_button.connect_clicked(move |_| {
-        execute_simulation::execute_simulation(&app_state, &text_view);
-
+        // run_simulation(&app_state, &text_view);
+        execute_simulation(&app_state, &text_view);
         // Perform any additional actions with the text here
     });
 
