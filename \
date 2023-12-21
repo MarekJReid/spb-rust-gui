@@ -10,14 +10,13 @@ pub fn send_payloads_to_broker(
     let hostname = app_state_borrow.mqtt_broker_hostname();
 
     let interval: u64 = 1000; // Duration in milliseconds
-    let broker_identifier = "kifabs";
-    let topic_name = "spb-cli-1703087130";
+    let broker_identifier = "spb-cli-1703087130";
+    let topic_name = "spBv1.0/kifabs/DDATA/spbcli/mksbox1v1-000";
 
     let mut mqttoptions = MqttOptions::new(broker_identifier, hostname, 1883);
     mqttoptions.set_keep_alive(Duration::from_secs(5));
 
     let (mut client, mut connection) = Client::new(mqttoptions, 10);
-
 
 let mut is_connected = false; // Initialize the flag as false
 
@@ -34,11 +33,12 @@ let _handle = std::thread::spawn(move || {
     }
 });
 
-
 client.subscribe(topic_name, QoS::AtMostOnce)?;
 for payload in payloads {
     println!("Sending message: {}", &payload);
-    client.publish(&*topic_name, QoS::AtLeastOnce, false, &*payload)?;
+// Serialize and convert to bytes
+let serialized_payload = payload.as_bytes().to_vec();
+    client.publish(&*topic_name, QoS::AtLeastOnce, false, &*serialized_payload)?;
     thread::sleep(Duration::from_millis(interval));
 }
 

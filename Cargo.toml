@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build-dependencies]
+protoc-rust = "2.28.0"
 
 [dependencies]
 gtk = "0.9.2"
@@ -11,3 +13,9 @@ gio = "0.18.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rumqttc = "0.17.0"
+rand = "0.8.5"
+prost = "0.7"
+prost-types = "0.7"
+bytes = "1"
+protobuf = "2.25"
+protoc-rust = "2.28.0"
